@@ -10,8 +10,6 @@ Sperm counting from video
 main file with all required function
 """
 import numpy as np
-import pandas as pd
-from PIL import Image
 from skimage import data, io, filters
 import matplotlib.pyplot as plt
 import av
@@ -19,10 +17,9 @@ import av
 # pip install av
 from skimage.color import rgb2gray
 from skimage import exposure
-from skimage.filters import threshold_otsu, threshold_local
+from skimage.filters import threshold_local
 from sklearn.cluster import KMeans
 from sklearn import metrics
-import matplotlib.colors as mcolors
 
     # get_bin increase contrast and binarize the input image
 def get_bin(img):
