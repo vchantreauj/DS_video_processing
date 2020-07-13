@@ -23,45 +23,21 @@ from skimage.filters import threshold_otsu, threshold_local
 container = av.open('mojo_video1.avi')
 
 # video as a list of images
+nb_im = 10
+images = []
 for frame in container.decode(video=0):
-    img = frame.to_image() #.save('frame-%04d.jpg' % frame.index)
-    arr = np.asarray(img) 
-    break
+    while nb_im > 0:
+        img = frame.to_image() #.save('frame-%04d.jpg' % frame.index)
+        arr = np.asarray(img) 
+        images.append(arr)
+        nb_im -= 1
 
-# is there a channel better than the other ?
-# Split
-red = arr[:, :, 0]
-green = arr[:, :, 1]
-blue = arr[:, :, 2]
+# visualization
 gray = rgb2gray(arr)
-# Plot
-fig, axs = plt.subplots(2,2)
-
-#cax_00 = axs[0,0].imshow(rgb2gray(arr), cmap=plt.cm.gray)
-cax_00 = axs[0,0].imshow(arr)
-axs[0,0].xaxis.set_major_formatter(plt.NullFormatter())  # kill xlabels
-axs[0,0].yaxis.set_major_formatter(plt.NullFormatter()) 
-
-cax_01 = axs[0,1].imshow(red, cmap='Reds')
-fig.colorbar(cax_01, ax=axs[0,1])
-axs[0,1].xaxis.set_major_formatter(plt.NullFormatter())
-axs[0,1].yaxis.set_major_formatter(plt.NullFormatter())
-
-cax_10 = axs[1,0].imshow(green, cmap='Greens')
-fig.colorbar(cax_10, ax=axs[1,0])
-axs[1,0].xaxis.set_major_formatter(plt.NullFormatter())
-axs[1,0].yaxis.set_major_formatter(plt.NullFormatter())
-
-cax_11 = axs[1,1].imshow(blue, cmap='Blues')
-fig.colorbar(cax_11, ax=axs[1,1])
-axs[1,1].xaxis.set_major_formatter(plt.NullFormatter())
-axs[1,1].yaxis.set_major_formatter(plt.NullFormatter())
-plt.show()
-
 # there is a hallo in the center of the image
 # try a normalisation
-logarithmic_corrected = exposure.adjust_log(gray, 0.8)
-equilize = exposure.equalize_adapthist(gray)
+log_corr = exposure.adjust_log(gray, 0.8)
+equilize = exposure.equalize_adapthist(gray) # more contrasted than log
 # local threshold to get mask of objects
 ad_thresh = threshold_local(equilize, 101, offset=0.07) # is the best one
 bin_im = equilize > ad_thresh
@@ -71,34 +47,35 @@ ad_thresh2 = threshold_local(equilize, 81, offset=0.07) #35
 bin_im2 = equilize > ad_thresh2
 
 # Plot
-fig, axs = plt.subplots(2,2)
-
-#cax_00 = axs[0,0].imshow(rgb2gray(arr), cmap=plt.cm.gray)
+fig, axs = plt.subplots(2,3)
 cax_00 = axs[0,0].imshow(gray, cmap=plt.cm.gray)
-axs[0,0].xaxis.set_major_formatter(plt.NullFormatter())  # kill xlabels
-axs[0,0].yaxis.set_major_formatter(plt.NullFormatter()) 
-
-cax_01 = axs[0,1].imshow(bin_im, cmap=plt.cm.gray)
-#axs[0,1].xaxis.set_major_formatter(plt.NullFormatter())
-#axs[0,1].yaxis.set_major_formatter(plt.NullFormatter())
-
-cax_10 = axs[1,0].imshow(bin_im1, cmap=plt.cm.gray)
-axs[1,0].xaxis.set_major_formatter(plt.NullFormatter())
-axs[1,0].yaxis.set_major_formatter(plt.NullFormatter())
-
-cax_00 = axs[1,1].imshow(bin_im2, cmap=plt.cm.gray)
-axs[1,1].xaxis.set_major_formatter(plt.NullFormatter())
-axs[1,1].yaxis.set_major_formatter(plt.NullFormatter())
+cax_01 = axs[0,1].imshow(log_corr, cmap=plt.cm.gray)
+cax_10 = axs[1,0].imshow(bin_im, cmap=plt.cm.gray)
+cax_11 = axs[1,1].imshow(bin_im1, cmap=plt.cm.gray)
+cax_02 = axs[0,2].imshow(equilize, cmap=plt.cm.gray)
+cax_12 = axs[1,2].imshow(bin_im2, cmap=plt.cm.gray)
 plt.show()
 
-# let's approximate an area for one spermatozoïde
+# get_bin
+# increase contrast and binarize the input image
+def get_bin(img):
+    gray = rgb2gray(img)
+    equilize = exposure.equalize_adapthist(gray)
+    # local threshold to get mask of objects
+    # considering the size of the image, a quit big block_size works better
+    ad_thresh = threshold_local(equilize, block_size = 101, offset=0.07)
+    bin_im = equilize > ad_thresh
+    return bin_im
+
+bin_im = get_bin(images[0])
+# let's approximate the area for one spermatozoïd
 plt.imshow(bin_im[900:1100,1300:1500]) #2
 plt.imshow(bin_im[1075:1200,900:1050]) #1
 plt.imshow(bin_im[500:700,875:1100]) #2
 plt.show()
 
-areas = [bin_im[500:700,875:1100].sum().sum()/2,
-         bin_im[1075:1200,900:1050].sum().sum(),
-         bin_im[900:1100,1300:1500].sum().sum()/2]
+areas = [np.sum(bin_im[500:700,875:1100])/2,
+         np.sum(bin_im[1075:1200,900:1050]),
+         np.sum(bin_im[900:1100,1300:1500])/2]
 
 area = round(np.mean(areas))
