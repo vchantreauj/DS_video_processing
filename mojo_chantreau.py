@@ -195,21 +195,24 @@ def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, o
         # considere new an object which has never appear before
         news = np.array([x for x in cur_diff if not ((x in movings) or (x in losts))])        
         prev_centers = centers
+        
     # remove object too close to one another, because the cluster center may change
     # for the same object during the iteration    
     obj_kept = []
-    losts_cp = losts
+    mov_curT = movings.transpose()
+    losts_cp = np.append(np.append(np.append(losts,movings,0), statics, 0), news, 0) #losts
     while len(losts_cp)>0:
+        # clusters close object from list to keep only one per cluster
         x = losts_cp[0]
         lostsT = np.array(losts_cp).transpose()
         obj = np.where((lostsT[0] > (x[0]-kept_dist)) & (lostsT[0] < (x[0]+kept_dist)) 
-                                    & (lostsT[1] > (x[1]-kept_dist)) & (lostsT[1] < (x[1]+kept_dist)))
+                       & (lostsT[1] > (x[1]-kept_dist)) & (lostsT[1] < (x[1]+kept_dist)))
         if len(obj[0])>1:
             obj_kept.append(list(np.mean(losts_cp[obj[0]], axis=0)))
         else:
             obj_kept.append(list(x))
         losts_cp = np.delete(losts_cp, obj[0], 0)
-    
+
     if plot_res:
         staticsT = statics.transpose()
         prev_diffT = prev_diff.transpose()
@@ -218,21 +221,24 @@ def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, o
         mov_curT = movings.transpose()
         lostsT = np.array(losts).transpose()
         obj_keptT = np.array(obj_kept).transpose()
-        newsT = news.transpose()
-        
+        newsT = news.transpose() 
         plt.figure(0)
         plt.imshow(images[i])
         plt.scatter(staticsT[1], staticsT[0],color='r',s=15, marker='x')
         plt.scatter(mov_prevT[1], mov_prevT[0],color='b',s=15, marker='o')
         plt.scatter(mov_curT[1], mov_curT[0],color='b',s=15, marker='x')
         plt.scatter(lostsT[1], lostsT[0],color='black',s=15, marker='o')
-        plt.scatter(obj_keptT[1], obj_keptT[0],color='g',s=25, marker='+')
         plt.scatter(newsT[1], newsT[0],color='g',s=15, marker='x')
+        plt.scatter(obj_keptT[1], obj_keptT[0],color='yellow',s=25, marker='+')
+        
         plt.ylim([bin_im.shape[0],0])
-        plt.legend(labels=['statics','moving last pos', 'moving cur pos','losts','kept','news'])
+        plt.legend(labels=['statics','moving last pos', 'moving cur pos','losts','news','kept'])
         plt.show()
+    nb_objects = len(obj_kept)
+    print('the',nb_im,'images of the video',video_file,'show',str(nb_objects),'spermatozïds.')
+    return nb_objects
 
-process_n_img_from_video('mojo_video1.avi',  nb_im=5, plot_res=True)
+process_n_img_from_video('mojo_video1.avi',  nb_im=3, plot_res=True)
  
 # remove object too close to one another, because the cluster center may change
 # for the same object during the iteration
