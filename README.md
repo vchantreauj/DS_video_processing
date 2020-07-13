@@ -1,30 +1,46 @@
 # Mojo
+
 Mojo test: count spermatozoïds from video
+
+mojo_chantreau: main file with functions
+
+mojo_annexes: usage example and illustration of each step of the process of counting
+
+
+Quick test:
+
+import mojo_chantreau
+
+mojo_chantreau.process_n_img_from_video(video_file='mojo_video1.avi', nb_im=10, mov_dist=40, plot_res=True, obj_area=400, kept_dist=30)
+
+
+Method:
 
 Superpervised learning is not an option, so we need to use statistical methods and unsupervised learning
 
-1. Work on one image to get a number of objects
+1. Get nb_im images from video (default: 10)
 
-1.1 get images from video
+2. get a number of objects for one image
 
-1.2 equilize values for one image
+2.2 enhance contrast values for the image
 
-1.3 find best parameters to binarize it so the background is gone
+2.3 binarize the image
 
-1.4 get the mean area of one object
+2.4 Thank to a mean area obj_area for one spermatozoïd (default: 400), and the total area for the image, deduce the number of objects
 
-1.5 With the total area, deduce the number of object
+3. get a representation of the object of this image to get rid of the noise, so it can be compare to one another.
+All points are map to n clusters, then the centroïd of each cluster are taken for representing the n objects.
 
-2. Normalize this image in a simple representation to get rid of the noise, so it can be compare to one another
+3.1 Nb of object = nb of clusters
 
-2.1 Nb of object = nb of clusters
+3.2 kmeans to affect each black pixel to one cluster
 
-2.2 kmeans to affecteach black pixel to one cluster
+3.3 get the centroïds (possible biais due to superimposed objects)
 
-2.3 Calcul the centroïds (possible biais due to superimposed objects)
+4. Compare each image representation to the next one, to assess static objects, moving objects and appearing/disappearing objects (news/losts) (due to focal or border)
 
-2.4 The matrix with the centroïds is a representation of the image, with each centroïd supposed to be one object
+5. Merge the lists (losts, statics, movings, news) obtained while processing the nb_im and mean the closest points (within kept_dist distance) to get rid of redundancies
 
-3. Compare each image representation to the next one, to assess static object, moving object and appearing/disappearing object (due to focal or border)
+6. The lenght of the resulting list is the number of spermatozoïds for this video !
 
 
