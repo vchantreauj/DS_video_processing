@@ -7,6 +7,7 @@ Created on Sun Jul 12 19:31:14 2020
 Mojo test
 
 Sperm counting from video
+main file with all required function
 """
 import numpy as np
 import pandas as pd
@@ -23,45 +24,7 @@ from sklearn.cluster import KMeans
 from sklearn import metrics
 import matplotlib.colors as mcolors
 
-container = av.open('mojo_video1.avi')
-
-# video as a list of images
-nb_im = 10
-count_im = nb_im
-images = []
-for frame in container.decode(video=0):
-    while count_im > 0:
-        img = frame.to_image() #.save('frame-%04d.jpg' % frame.index)
-        arr = np.asarray(img) 
-        images.append(arr)
-        count_im -= 1
-
-# visualization
-gray = rgb2gray(arr)
-# there is a hallo in the center of the image
-# try a normalisation
-log_corr = exposure.adjust_log(gray, 0.8)
-equilize = exposure.equalize_adapthist(gray) # more contrasted than log
-# local threshold to get mask of objects
-ad_thresh = threshold_local(equilize, 101, offset=0.07) # is the best one
-bin_im = equilize < ad_thresh
-ad_thresh1 = threshold_local(equilize, 121, offset=0.07) #35
-bin_im1 = equilize < ad_thresh1
-ad_thresh2 = threshold_local(equilize, 81, offset=0.07) #35
-bin_im2 = equilize < ad_thresh2
-
-# Plot
-fig, axs = plt.subplots(2,3)
-cax_00 = axs[0,0].imshow(gray, cmap=plt.cm.gray)
-cax_01 = axs[0,1].imshow(log_corr, cmap=plt.cm.gray)
-cax_10 = axs[1,0].imshow(bin_im, cmap=plt.cm.gray)
-cax_11 = axs[1,1].imshow(bin_im1, cmap=plt.cm.gray)
-cax_02 = axs[0,2].imshow(equilize, cmap=plt.cm.gray)
-cax_12 = axs[1,2].imshow(bin_im2, cmap=plt.cm.gray)
-plt.show()
-
-# get_bin
-# increase contrast and binarize the input image
+    # get_bin increase contrast and binarize the input image
 def get_bin(img):
     gray = rgb2gray(img)
     equilize = exposure.equalize_adapthist(gray)
@@ -71,58 +34,14 @@ def get_bin(img):
     bin_im = equilize < ad_thresh
     return bin_im
 
-bin_im = get_bin(images[0])
-# let's approximate the area for one spermatozoïd
-# take into account noise from spermatozoïds from the background
-plt.imshow(bin_im[900:1100,1300:1500]) # about 3 spermatozoïds
-plt.imshow(bin_im[1075:1200,900:1050]) # about 2 spermatozoïds
-plt.imshow(bin_im[500:700,875:1100]) # about 4 spermatozoïds
-plt.show()
-
-areas = [np.sum(bin_im[500:700,875:1100])/3,
-         np.sum(bin_im[1075:1200,900:1050])/2,
-         np.sum(bin_im[900:1100,1300:1500])/4]
-
-area = round(np.mean(areas))
-
+    # get_nb_object return the number of spermatozoid in the image imp
+    # according to the given size of one spermatozoid obj_area
 def get_nb_object(img, obj_area):
     return int(round(np.sum(img)/obj_area))
 
-nb_objects = get_nb_object(bin_im, area)
-
-# get a representation to clear noise so one image can be compared to another
-all_pos = np.argwhere(bin_im > 0)
-all_posT = all_pos.transpose()
-plt.figure(0)
-plt.scatter(all_posT[1], all_posT[0],s=2)
-plt.ylim([bin_im.shape[0],0])
-plt.show()
-# for comparison
-plt.figure(1)
-#plt.imshow(bin_im, cmap=plt.cm.gray)
-plt.imshow(images[0])
-plt.show()
-
-# KMeans algorithm to affect each point to one cluster => too long
-kmeans_model = KMeans(n_clusters=nb_objects).fit(all_pos)
-colors = mcolors.CSS4_COLORS
-col_names = list(colors)
-plt.figure(2)
-for i, l in enumerate(kmeans_model.labels_):
-    print(i)
-    plt.scatter(all_posT[1][i], all_posT[0][i], color=colors[col_names[l]], s=2)#, marker=markers[l],ls='None') # color=colors[l]
-    plt.xlim([0,bin_im.shape[1]])
-    plt.ylim([bin_im.shape[0],0])
-plt.show()
-
-# get the cluster centroïd to get a representation
-centers = np.array(kmeans_model.cluster_centers_)
-centersT = centers.transpose()
-plt.figure(3)
-plt.imshow(images[0])
-plt.scatter(centersT[1], centersT[0], color='red', s=20, marker="x")
-plt.show()
-
+    # get_object_center perform kmeans clustering on all points from the mask
+    # that is to say points belonging to spermatozoid
+    # return the center of each cluster (to represent each spermatozoid)
 def get_object_center(bin_im, area = 400): #490
     nb_objects = get_nb_object(bin_im, area)
     all_pos = np.argwhere(bin_im > 0)
@@ -131,6 +50,7 @@ def get_object_center(bin_im, area = 400): #490
     #print(str(len(centers))," spermatozoïds for this image")
     return [list(item) for item in centers] # centers
 
+    # plot_centers plots the center of each cluster on the raw image
 def plot_centers(img, centers):
     centersT = centers.transpose()
     plt.figure(0)
@@ -138,11 +58,17 @@ def plot_centers(img, centers):
     plt.scatter(centersT[1], centersT[0], color='red', s=20, marker="x")
     plt.show()
     
-def get_distance(obj1, obj2):
-    return math.sqrt( ((obj1[0]-obj2[0])**2)+((obj1[1]-obj2[1])**2))    
- 
-#plot_centers(images[0], centers)    
-
+    # process_n_img_from_video process nb_im from the given video video_file
+    # 1. get the nb_im
+    # 2. contrast and binarize images
+    # 3. get the representation of the images: one center is one spermatozoid
+    # 4. for each image, compare the centers with the previous one so the the center list are split into:
+    #       - statics: commons center
+    #       - movings: centers which have move around mov_dist from the previous center
+    #       - losts: previous center not present in the current image
+    #       - news: news center not present in the previous image
+    # 5. cluster all points to remove redundancies of points within a distance of kept_dist of one another
+    # 6. Plot all points if plot_res = True
 def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, obj_area=400, kept_dist=30):
     container = av.open(video_file)
     # video as a list of images
@@ -163,15 +89,13 @@ def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, o
     for i in range(1, nb_im):
         bin_im = get_bin(images[i])
         centers = get_object_center(bin_im, area = obj_area) 
-        # get the static objects, to count them only once
-        # the cluster center may be biased, so add a delta to compare position
+        # get the static objects
         statics = np.array([x for x in centers if x in statics])
         prev_diff = np.array([x for x in prev_centers if not( x in statics)])
         cur_diff = np.array([x for x in centers if not( x in statics)])
-        # get moving object, to count them only once
+        # get moving object
         # object prev and curr with are in 40 pixels from each other are considered
-        # to be the same moving object
-        # TODO this distance has to be tested, it may be larger
+        # to be the same object moving
         cur_diffT = cur_diff.transpose()
         if i == 1 :
             movings = prev_diff
@@ -186,7 +110,7 @@ def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, o
                 # TODO: pick the closest if several return
         movings_prev = np.array(movings_prev)
         movings = np.array(movings_cur)
-        # get appearing and disappearing object, to add them all  
+        # get appearing and disappearing object
         tmp_losts = np.array([x for x in prev_diff if not ((x in movings_prev) or (x in losts))])
         if len(losts) == 0:
             losts = tmp_losts
@@ -200,18 +124,18 @@ def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, o
     # for the same object during the iteration    
     obj_kept = []
     mov_curT = movings.transpose()
-    losts_cp = np.append(np.append(np.append(losts,movings,0), statics, 0), news, 0) #losts
-    while len(losts_cp)>0:
-        # clusters close object from list to keep only one per cluster
-        x = losts_cp[0]
-        lostsT = np.array(losts_cp).transpose()
+    all_list = np.append(np.append(np.append(losts,movings,0), statics, 0), news, 0) #losts
+    while len(all_list)>0:
+        # clusters close objects to keep only one per cluster
+        x = all_list[0]
+        lostsT = np.array(all_list).transpose()
         obj = np.where((lostsT[0] > (x[0]-kept_dist)) & (lostsT[0] < (x[0]+kept_dist)) 
                        & (lostsT[1] > (x[1]-kept_dist)) & (lostsT[1] < (x[1]+kept_dist)))
         if len(obj[0])>1:
-            obj_kept.append(list(np.mean(losts_cp[obj[0]], axis=0)))
+            obj_kept.append(list(np.mean(all_list[obj[0]], axis=0)))
         else:
             obj_kept.append(list(x))
-        losts_cp = np.delete(losts_cp, obj[0], 0)
+        all_list = np.delete(all_list, obj[0], 0)
 
     if plot_res:
         staticsT = statics.transpose()
@@ -238,91 +162,4 @@ def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, o
     print('the',nb_im,'images of the video',video_file,'show',str(nb_objects),'spermatozïds.')
     return nb_objects
 
-process_n_img_from_video('mojo_video1.avi',  nb_im=3, plot_res=True)
- 
-# remove object too close to one another, because the cluster center may change
-# for the same object during the iteration
-kept_dist = 30
-obj_kept = []
-losts_cp = losts
-while len(losts_cp)>0:
-    x = losts_cp[0]
-    lostsT = np.array(losts_cp).transpose()
-    obj = np.where((lostsT[0] > (x[0]-kept_dist)) & (lostsT[0] < (x[0]+kept_dist)) 
-                                & (lostsT[1] > (x[1]-kept_dist)) & (lostsT[1] < (x[1]+kept_dist)))
-    if len(obj[0])>1:
-        #objT = obj[0].transpose()
-        obj_kept.append(list(np.mean(losts_cp[obj[0]], axis=0)))
-    else:
-        obj_kept.append(list(x))
-    losts_cp = np.delete(losts_cp, obj[0], 0)
-   
-centers = get_object_center(bin_im)   
-
-staticsT = statics.transpose()
-prev_diffT = prev_diff.transpose()
-cur_diffT = cur_diff.transpose()
-mov_prevT = movings_prev.transpose()
-mov_curT = movings.transpose()
-lostsT = np.array(losts).transpose()
-obj_keptT = np.array(obj_kept).transpose()
-#newsT = news.transpose()
-
-plt.figure(11)
-plt.imshow(images[i])
-plt.scatter(staticsT[1], staticsT[0],color='r',s=15, marker='x')
-plt.scatter(mov_prevT[1], mov_prevT[0],color='b',s=15, marker='o')
-plt.scatter(mov_curT[1], mov_curT[0],color='b',s=15, marker='x')
-plt.scatter(lostsT[1], lostsT[0],color='black',s=15, marker='o')
-plt.scatter(obj_keptT[1], obj_keptT[0],color='g',s=25, marker='+')
-plt.scatter(newsT[1], newsT[0],color='g',s=15, marker='x')
-plt.ylim([bin_im.shape[0],0])
-plt.legend(labels=['statics','moving last pos', 'moving cur pos','losts','kept','news'])
-plt.show()
-
-plt.figure(10)
-plt.imshow(images[0])
-plt.show()
-
-
-
-staticsT = statics.transpose()
-prev_diffT = prev_diff.transpose()
-cur_diffT = cur_diff.transpose()
-plt.figure(12)
-plt.scatter(staticsT[1], staticsT[0],color='r',s=4, marker='x')
-plt.scatter(prev_diffT[1], prev_diffT[0],color='b',s=4, marker='x')
-plt.scatter(cur_diffT[1], cur_diffT[0],color='g',s=4, marker='x')
-plt.ylim([bin_im.shape[0],0])
-plt.show()
-
-'''
-# density plot
-# Extract x and y
-x = all_pos[:, 0]
-y = all_pos[:, 1]# Define the borders
-deltaX = (max(x) - min(x))/10
-deltaY = (max(y) - min(y))/10xmin = min(x) - deltaX
-xmax = max(x) + deltaXymin = min(y) - deltaY
-ymax = max(y) + deltaYprint(xmin, xmax, ymin, ymax)# Create meshgrid
-xx, yy = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
-
-# fit gaussian kernel
-positions = np.vstack([xx.ravel(), yy.ravel()])
-values = np.vstack([x, y])
-kernel = st.gaussian_kde(values)
-f = np.reshape(kernel(positions).T, xx.shape)
-
-# ploting kernel with contours
-fig = plt.figure(figsize=(8,8))
-ax = fig.gca()
-ax.set_xlim(xmin, xmax)
-ax.set_ylim(ymin, ymax)
-cfset = ax.contourf(xx, yy, f, cmap='coolwarm')
-ax.imshow(np.rot90(f), cmap='coolwarm', extent=[xmin, xmax, ymin, ymax])
-cset = ax.contour(xx, yy, f, colors='k')
-ax.clabel(cset, inline=1, fontsize=10)
-ax.set_xlabel('X')
-ax.set_ylabel('Y')
-plt.title('2D Gaussian Kernel density estimation')
-'''
+# process_n_img_from_video('mojo_video1.avi',  nb_im=10, plot_res=True)
