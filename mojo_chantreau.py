@@ -27,13 +27,14 @@ container = av.open('mojo_video1.avi')
 
 # video as a list of images
 nb_im = 10
+count_im = nb_im
 images = []
 for frame in container.decode(video=0):
-    while nb_im > 0:
+    while count_im > 0:
         img = frame.to_image() #.save('frame-%04d.jpg' % frame.index)
         arr = np.asarray(img) 
         images.append(arr)
-        nb_im -= 1
+        count_im -= 1
 
 # visualization
 gray = rgb2gray(arr)
@@ -118,7 +119,6 @@ plt.show()
 centers = np.array(kmeans_model.cluster_centers_)
 centersT = centers.transpose()
 plt.figure(3)
-#plt.imshow(bin_im, cmap=plt.cm.gray)
 plt.imshow(images[0])
 plt.scatter(centersT[1], centersT[0], color='red', s=20, marker="x")
 plt.show()
@@ -127,7 +127,8 @@ def get_object_center(bin_im, area = 490):
     nb_objects = get_nb_object(bin_im, area)
     all_pos = np.argwhere(bin_im > 0)
     kmeans_model = KMeans(n_clusters=nb_objects).fit(all_pos)
-    return np.array(kmeans_model.cluster_centers_)
+    centers = np.array(kmeans_model.cluster_centers_)
+    return np.round(centers,0)
 
 def plot_centers(img, centers):
     centersT = centers.transpose()
@@ -136,9 +137,67 @@ def plot_centers(img, centers):
     plt.scatter(centersT[1], centersT[0], color='red', s=20, marker="x")
     plt.show()
     
+def get_distance(obj1, obj2):
+    return math.sqrt( ((obj1[0]-obj2[0])**2)+((obj1[1]-obj2[1])**2))    
     
+centers = get_object_center(bin_im)    
+plot_centers(images[0], centers)    
+  
+# now we can compare one image with the following one
+prev_centers = centers
+statics = prev_centers
+for i in range(1, nb_im):
+    bin_im = get_bin(images[i])
+    centers = get_object_center(bin_im) 
+    # get the static objects, to count them only once
+    statics = np.array([x for x in centers if x in prev_centers]) #np.intersect1d(centers, statics, assume_unique=True)
+    prev_diff = np.array([x for x in prev_centers if not( x in statics) ])# setdiff1d(prev_centers, statics)
+    cur_diff = np.array([x for x in centers if not( x in statics) ])# np.setdiff1d(centers, statics)
+    # get moving object, to count them only once
+    staticsT = statics.transpose()
+    prev_diffT = prev_diff.transpose()
+    cur_diffT = cur_diff.transpose()
+    plt.figure(12)
+    plt.scatter(staticsT[1], staticsT[0],color='r',s=4, marker='x')
+    plt.scatter(prev_diffT[1], prev_diffT[0],color='b',s=4, marker='x')
+    plt.scatter(cur_diffT[1], cur_diffT[0],color='g',s=4, marker='x')
+    plt.ylim([bin_im.shape[0],0])
+    plt.show()
+    # object prev and curr with are in 40 pixels from each other are considered
+    # to be the same moving object
+    movings_prev = []
+    movings_cur = []
+    for x in prev_diff:
+        next_pos = np.where((cur_diffT[0] > (x[0]-40)) & (cur_diffT[0] < (x[0]+40)) 
+                            & (cur_diffT[1] > (x[1]-40)) & (cur_diffT[1] < (x[1]+40)))
+        if len(next_pos[0]>0):
+            movings_prev.append(x)
+            movings_cur.append(cur_diff[next_pos[0][0]])
+            # TODO: pick the closest if several return
+    movings_prev = np.array(movings_prev)
+    movings_cur = np.array(movings_cur)
+    # get appearing and disappearing object, to add them all  
+    losts = np.array([x for x in prev_diff if not (x in movings_prev)])
+    news = np.array([x for x in cur_diff if not (x in movings_cur)])
+    break
+    prev_centers = centers
 
+mov_prevT = movings_prev.transpose()
+mov_curT = movings_cur.transpose()
+lostsT = losts.transpose()
+newsT = news.transpose()
 
+plt.figure(11)
+plt.imshow(images[1])
+plt.scatter(staticsT[1], staticsT[0],color='r',s=15, marker='x')
+plt.scatter(mov_prevT[1], mov_prevT[0],color='b',s=15, marker='x')
+plt.scatter(mov_curT[1], mov_curT[0],color='b',s=15, marker='o')
+plt.scatter(lostsT[1], lostsT[0],color='black',s=15, marker='x')
+plt.scatter(newsT[1], newsT[0],color='g',s=15, marker='x')
+plt.ylim([bin_im.shape[0],0])
+plt.show()
+
+'''
 # density plot
 # Extract x and y
 x = all_pos[:, 0]
@@ -167,3 +226,4 @@ ax.clabel(cset, inline=1, fontsize=10)
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
 plt.title('2D Gaussian Kernel density estimation')
+'''
