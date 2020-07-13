@@ -128,8 +128,8 @@ def get_object_center(bin_im, area = 400): #490
     all_pos = np.argwhere(bin_im > 0)
     kmeans_model = KMeans(n_clusters=nb_objects).fit(all_pos)
     centers = np.round(np.array(kmeans_model.cluster_centers_),0)
-    print(str(len(centers))," spermatozoïds for this image")
-    return centers
+    #print(str(len(centers))," spermatozoïds for this image")
+    return [list(item) for item in centers] # centers
 
 def plot_centers(img, centers):
     centersT = centers.transpose()
@@ -140,51 +140,118 @@ def plot_centers(img, centers):
     
 def get_distance(obj1, obj2):
     return math.sqrt( ((obj1[0]-obj2[0])**2)+((obj1[1]-obj2[1])**2))    
-    
-centers = get_object_center(bin_im)    
+ 
 #plot_centers(images[0], centers)    
-  
-# now we can compare one image with the following one
-prev_centers = centers
-statics = prev_centers
-movings = []
-losts = []
-for i in range(1, nb_im):
-    bin_im = get_bin(images[i])
-    centers = get_object_center(bin_im) 
-    # get the static objects, to count them only once
-    statics = np.array([x for x in centers if x in statics])
-    prev_diff = np.array([x for x in prev_centers if not( x in statics)])
-    cur_diff = np.array([x for x in centers if not( x in statics)])
-    # get moving object, to count them only once
-    # object prev and curr with are in 40 pixels from each other are considered
-    # to be the same moving object
-    # TODO this distance has to be tested, it may be larger
-    cur_diffT = cur_diff.transpose()
-    if i == 1 :
-        movings = prev_diff
-    movings_prev = []
-    movings_cur = []
-    for x in movings:
-        next_pos = np.where((cur_diffT[0] > (x[0]-40)) & (cur_diffT[0] < (x[0]+40)) 
-                            & (cur_diffT[1] > (x[1]-40)) & (cur_diffT[1] < (x[1]+40)))
-        if len(next_pos[0]>0):
-            movings_prev.append(x)
-            movings_cur.append(cur_diff[next_pos[0][0]])
-            # TODO: pick the closest if several return
-    movings_prev = np.array(movings_prev)
-    movings = np.array(movings_cur)
-    # get appearing and disappearing object, to add them all  
-    tmp_losts = np.array([x for x in prev_diff if not ((x in movings_prev) or (x in losts))])
-    if len(losts) == 0:
-        losts = tmp_losts
-    else:
-        losts = np.append(losts,tmp_losts,0)
-    # considere new an object which has never appear before
-    news = np.array([x for x in cur_diff if not ((x in movings) or (x in losts))])
-    
-    prev_centers = centers
 
+def process_n_img_from_video(video_file, nb_im=10, mov_dist=40, plot_res=True, obj_area=400, kept_dist=30):
+    container = av.open(video_file)
+    # video as a list of images
+    count_im = nb_im
+    images = []
+    for frame in container.decode(video=0):
+        while count_im > 0:
+            img = frame.to_image() #.save('frame-%04d.jpg' % frame.index)
+            arr = np.asarray(img) 
+            images.append(arr)
+            count_im -= 1
+    # compare one image with the following one
+    bin_im = get_bin(images[0])
+    prev_centers = get_object_center(bin_im, area = obj_area)  
+    statics = prev_centers
+    movings = []
+    losts = []
+    for i in range(1, nb_im):
+        bin_im = get_bin(images[i])
+        centers = get_object_center(bin_im, area = obj_area) 
+        # get the static objects, to count them only once
+        # the cluster center may be biased, so add a delta to compare position
+        statics = np.array([x for x in centers if x in statics])
+        prev_diff = np.array([x for x in prev_centers if not( x in statics)])
+        cur_diff = np.array([x for x in centers if not( x in statics)])
+        # get moving object, to count them only once
+        # object prev and curr with are in 40 pixels from each other are considered
+        # to be the same moving object
+        # TODO this distance has to be tested, it may be larger
+        cur_diffT = cur_diff.transpose()
+        if i == 1 :
+            movings = prev_diff
+        movings_prev = []
+        movings_cur = []
+        for x in movings:
+            next_pos = np.where((cur_diffT[0] > (x[0]-mov_dist)) & (cur_diffT[0] < (x[0]+mov_dist)) 
+                                & (cur_diffT[1] > (x[1]-mov_dist)) & (cur_diffT[1] < (x[1]+mov_dist)))
+            if len(next_pos[0])>0:
+                movings_prev.append(x)
+                movings_cur.append(cur_diff[next_pos[0][0]])
+                # TODO: pick the closest if several return
+        movings_prev = np.array(movings_prev)
+        movings = np.array(movings_cur)
+        # get appearing and disappearing object, to add them all  
+        tmp_losts = np.array([x for x in prev_diff if not ((x in movings_prev) or (x in losts))])
+        if len(losts) == 0:
+            losts = tmp_losts
+        else:
+            losts = np.append(losts,tmp_losts,0)
+        # considere new an object which has never appear before
+        news = np.array([x for x in cur_diff if not ((x in movings) or (x in losts))])        
+        prev_centers = centers
+    # remove object too close to one another, because the cluster center may change
+    # for the same object during the iteration    
+    obj_kept = []
+    losts_cp = losts
+    while len(losts_cp)>0:
+        x = losts_cp[0]
+        lostsT = np.array(losts_cp).transpose()
+        obj = np.where((lostsT[0] > (x[0]-kept_dist)) & (lostsT[0] < (x[0]+kept_dist)) 
+                                    & (lostsT[1] > (x[1]-kept_dist)) & (lostsT[1] < (x[1]+kept_dist)))
+        if len(obj[0])>1:
+            obj_kept.append(list(np.mean(losts_cp[obj[0]], axis=0)))
+        else:
+            obj_kept.append(list(x))
+        losts_cp = np.delete(losts_cp, obj[0], 0)
+    
+    if plot_res:
+        staticsT = statics.transpose()
+        prev_diffT = prev_diff.transpose()
+        cur_diffT = cur_diff.transpose()
+        mov_prevT = movings_prev.transpose()
+        mov_curT = movings.transpose()
+        lostsT = np.array(losts).transpose()
+        obj_keptT = np.array(obj_kept).transpose()
+        newsT = news.transpose()
+        
+        plt.figure(0)
+        plt.imshow(images[i])
+        plt.scatter(staticsT[1], staticsT[0],color='r',s=15, marker='x')
+        plt.scatter(mov_prevT[1], mov_prevT[0],color='b',s=15, marker='o')
+        plt.scatter(mov_curT[1], mov_curT[0],color='b',s=15, marker='x')
+        plt.scatter(lostsT[1], lostsT[0],color='black',s=15, marker='o')
+        plt.scatter(obj_keptT[1], obj_keptT[0],color='g',s=25, marker='+')
+        plt.scatter(newsT[1], newsT[0],color='g',s=15, marker='x')
+        plt.ylim([bin_im.shape[0],0])
+        plt.legend(labels=['statics','moving last pos', 'moving cur pos','losts','kept','news'])
+        plt.show()
+
+process_n_img_from_video('mojo_video1.avi',  nb_im=5, plot_res=True)
+ 
+# remove object too close to one another, because the cluster center may change
+# for the same object during the iteration
+kept_dist = 30
+obj_kept = []
+losts_cp = losts
+while len(losts_cp)>0:
+    x = losts_cp[0]
+    lostsT = np.array(losts_cp).transpose()
+    obj = np.where((lostsT[0] > (x[0]-kept_dist)) & (lostsT[0] < (x[0]+kept_dist)) 
+                                & (lostsT[1] > (x[1]-kept_dist)) & (lostsT[1] < (x[1]+kept_dist)))
+    if len(obj[0])>1:
+        #objT = obj[0].transpose()
+        obj_kept.append(list(np.mean(losts_cp[obj[0]], axis=0)))
+    else:
+        obj_kept.append(list(x))
+    losts_cp = np.delete(losts_cp, obj[0], 0)
+   
+centers = get_object_center(bin_im)   
 
 staticsT = statics.transpose()
 prev_diffT = prev_diff.transpose()
@@ -192,7 +259,8 @@ cur_diffT = cur_diff.transpose()
 mov_prevT = movings_prev.transpose()
 mov_curT = movings.transpose()
 lostsT = np.array(losts).transpose()
-newsT = news.transpose()
+obj_keptT = np.array(obj_kept).transpose()
+#newsT = news.transpose()
 
 plt.figure(11)
 plt.imshow(images[i])
@@ -200,9 +268,10 @@ plt.scatter(staticsT[1], staticsT[0],color='r',s=15, marker='x')
 plt.scatter(mov_prevT[1], mov_prevT[0],color='b',s=15, marker='o')
 plt.scatter(mov_curT[1], mov_curT[0],color='b',s=15, marker='x')
 plt.scatter(lostsT[1], lostsT[0],color='black',s=15, marker='o')
+plt.scatter(obj_keptT[1], obj_keptT[0],color='g',s=25, marker='+')
 plt.scatter(newsT[1], newsT[0],color='g',s=15, marker='x')
 plt.ylim([bin_im.shape[0],0])
-plt.legend(labels=['statics','moving last pos', 'moving cur pos','losts','news'])
+plt.legend(labels=['statics','moving last pos', 'moving cur pos','losts','kept','news'])
 plt.show()
 
 plt.figure(10)
