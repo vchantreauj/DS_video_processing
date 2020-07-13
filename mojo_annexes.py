@@ -43,7 +43,7 @@ count_im = nb_im
 images = []
 for frame in container.decode(video=0):
     while count_im > 0:
-        img = frame.to_image() #.save('frame-%04d.jpg' % frame.index)
+        img = frame.to_image() #
         arr = np.asarray(img) 
         images.append(arr)
         count_im -= 1
@@ -110,14 +110,14 @@ plt.show()
 nb_objects = mojo_chantreau.get_nb_object(bin_im,400)
 all_pos = np.argwhere(bin_im > 0)
 all_posT = all_pos.transpose()
-# KMeans algorithm to affect each point to one cluster => too long
+# KMeans algorithm to affect each point to one cluster
 kmeans_model = KMeans(n_clusters=nb_objects).fit(all_pos)
 colors = mcolors.CSS4_COLORS
 col_names = list(colors)
 plt.figure(2)
 for i, l in enumerate(kmeans_model.labels_):
     print(i/nb_objects)
-    plt.scatter(all_posT[1][i], all_posT[0][i], color=colors[col_names[l]], s=2)#, marker=markers[l],ls='None') # color=colors[l]
+    plt.scatter(all_posT[1][i], all_posT[0][i], color=colors[col_names[l]], s=2)
     plt.xlim([0,bin_im.shape[1]])
     plt.ylim([bin_im.shape[0],0])
 plt.show()
