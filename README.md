@@ -44,3 +44,14 @@ All points are map to n clusters, then the centroïd of each cluster are taken f
 6. The lenght of the resulting list is the number of spermatozoïds for this video !
 
 
+Librairies used (python 3.8):
+
+numpy==1.18.1
+
+scikit-image==0.17.2
+
+av==8.0.2
+
+scikit-learn==0.23.1
+
+
