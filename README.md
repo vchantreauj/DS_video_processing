@@ -21,7 +21,7 @@ Superpervised learning is not an option, so we need to use statistical methods a
 
 2.2 kmeans to affecteach black pixel to one cluster
 
-2.3 Calcul the centroïds
+2.3 Calcul the centroïds (possible biais due to superimposed objects)
 
 2.4 The matrix with the centroïds is a representation of the image, with each centroïd supposed to be one object
 
