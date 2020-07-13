@@ -10,10 +10,9 @@ Sperm counting from video
 annexe file to describe each step
 """
 import numpy as np
-import pandas as pd
-from PIL import Image
 from skimage import data, io, filters
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 import av
 # to install PyAV:
 # pip install av
@@ -22,7 +21,7 @@ from skimage import exposure
 from skimage.filters import threshold_otsu, threshold_local
 from sklearn.cluster import KMeans
 from sklearn import metrics
-import matplotlib.colors as mcolors
+
 import mojo_chantreau
 
 
