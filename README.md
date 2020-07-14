@@ -5,6 +5,16 @@ Mojo test: count spermatozoïds from video
 * mojo_chantreau: main file with documented functions
 * mojo_annexes: usage example and illustration of each step of the process of counting
 
+## Prerequisite
+
+* Python 3.8
+
+Librairies:
+
+* numpy==1.18.1
+* scikit-image==0.17.2
+* av==8.0.2
+* scikit-learn==0.23.1
 
 ## Quick test
 
@@ -49,17 +59,5 @@ All points are map to n clusters, then the centroïd of each cluster are taken f
 - Some parameters needs to be improved, for example try to reduce the obj_area size.
 - the kmeans clustering works well, but we can try with density instead, the pics (gaussian kernels) being an object, to check on precision and performance.
 - the image processing need to be enhance, by removing or cropping the artefact like in video 2 (try edge detection and cropping the outside).
-
-
-## Version used
-
-* Python 3.8
-
-Librairies:
-
-* numpy==1.18.1
-* scikit-image==0.17.2
-* av==8.0.2
-* scikit-learn==0.23.1
 
 
