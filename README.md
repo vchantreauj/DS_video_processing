@@ -27,7 +27,7 @@ With **video_file** the path to the video file, **nb_im** the number of images t
 
 ## Method
 
-Superpervised learning is not an option, so we need to use statistical methods and unsupervised learning
+For this kind of unlabelled data, we need unsupervised methods, and more precisely *instance segmentation* to be able to count. Here I try a method as simple as possible, to be able to process a (part of) video fast enought.
 
 1. Get nb_im images from video (default: 10)
 
