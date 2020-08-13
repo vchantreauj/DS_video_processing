@@ -1,6 +1,6 @@
-# Mojo
+# Video processing
 
-Mojo test: count spermatozoïds from video
+Video processing: count spermatozoïds from video
 
 * mojo_chantreau: main file with documented functions
 * mojo_annexes: usage example and illustration of each step of the process of counting
